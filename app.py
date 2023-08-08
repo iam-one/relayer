@@ -1,35 +1,38 @@
 import serial
 from flask import Flask, request, jsonify
-from time import sleep
 
 # ser = serial.Serial("/dev/ttyUSB0", 9600, timeout=1)
-ser = serial.Serial("/dev/cu.usbmodem21201", 9600, timeout=1)
+ser = serial.Serial("/dev/tty.usbmodem1101", 9600, timeout=1)
 
 app = Flask(__name__)
 
-@app.route('/device/<int:device>/state', methods = ['PUT'])
+@app.route('/device/<device>/state', methods = ['GET','PUT'])
 def update(device):
     if request.method == 'PUT':
+        buffer = ""
         state = request.get_json()["state"]
+
         if state == "true":
-            ser.write(str.encode("O %d\n"%device))
+            ser.write(str.encode("T " + str(device) + "\\n"))
         else:
-            ser.write(str.encode("F %d\n"%device))
+            ser.write(str.encode("F " + str(device) + "\\n"))
 
         while(True):
             if ser.readable():
-                if str(ser.readline()).split("'")[1] == "OK\r": break
+                buffer += str(ser.readline()).split("'")[1][:-2]
+                if buffer != "" and "OK\\r" in buffer: break
 
-        return 'Updated: ' + state
+        return 'Updated: %s(%s)'%(state, device)
 
 @app.route('/device/state')
 def getState():
+    buffer = ""
     data = {}
-    ser.write(str.encode("M\n"))
+    ser.write(str.encode("M\\n"))
     while(True):
         if ser.readable():
-            buffer = str(ser.readline()).split("'")[1][:-2]
-            if buffer != "" and "OK\\r" not in buffer: break
+            buffer += str(ser.readline()).split("'")[1][:-2]
+            if buffer != "" and str(ser.readline()).split("'")[1][:-2] == "OK\\r": break
 
     for i in range(len(buffer)):
         if buffer[i] == "T": data[i] = "true"
@@ -39,3 +42,5 @@ def getState():
 
 if __name__ == '__main__':
     app.run(debug=True, port=9999)
+
+# Periodically send “P\n” and wait for “OK\n”.→ device health check.
