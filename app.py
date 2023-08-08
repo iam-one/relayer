@@ -19,10 +19,9 @@ def update(device):
 
         while(True):
             if ser.readable():
-                buffer += str(ser.readline()).split("'")[1][:-2]
-                if buffer != "" and "OK\\r" in buffer: break
+                if str(ser.readline()).split("'")[1][:-2] == "OK\\r": break
 
-        return 'Updated: %s(%s)'%(state, device)
+        return 'Device %s Updated: %s'%(device, state)
 
 @app.route('/device/state')
 def getState():
